@@ -7,3 +7,7 @@ env/
 .ipynb_checkpoints
 /.ipynb_checkpoints/*
 .ipynb_checkpoints/*
+imdb_cache.sqlite
+./imdb_cache.sqlite
+primer_exercise1/imdb_cache.sqlite
+*.sqlite
