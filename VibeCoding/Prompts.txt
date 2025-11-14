@@ -1,0 +1,25 @@
+ChatGPT 5.1 
+
+Hi! I want you to build a Minimalistic Streamlit App That takes a CSV or Json File containing the Top250 Movies from IMDb Via a Upload Button It Should have 5 Tabs 1. Patience (All movies with a duration equal or more than 220min) 2. Binge Watching Steven Spielberg (The Total Duration of all Spielberg movies combined) 3. This is about me ( A ranked list of the Top 10 Actors who have the most "screentime" In all those 250 movies. Screentime is calculated with the duration of all the movies they are in) 4. Workhorse (Top10 Actors who have stared in the most movies out of those 250) 5. Cashhorse (The top 10 actors (cast) Which have generated the most gross. gross would be the sum of all the gross of the movies they have starred in) After the data is uploaded it should be dispalyed in table view. I want some extra features: A timeline View with the number of movies per year ! I want a graph where a node is a director or actor. A edge should exist between them if they have worked on a movie together U can use networkx or pyvis libs for visualisation whatever fits better. Only the Top X collaborations should be displayed wich the user can change via a slider ranging from 10 to how many there are.
+
+this is the csv that will be used !
+(csv datei angehängt)
+
+i got this error after running the app : TypeError: unsupported operand type(s) for |: 'type' and 'NoneType' File "/Users/mariosspathiadis/PythonDataScience/.venv/lib/python3.9/site-packages/streamlit/runtime/scriptrunner/exec_code.py", line 128, in exec_func_with_error_handling result = func() File "/Users/mariosspathiadis/PythonDataScience/.venv/lib/python3.9/site-packages/streamlit/runtime/scriptrunner/script_runner.py", line 669, in code_to_exec exec(code, module.__dict__) # noqa: S102 File "/Users/mariosspathiadis/PythonDataScience/streamlit_app.py", line 13, in <module> def load_data(uploaded_file: st.runtime.uploaded_file_manager.UploadedFile | None) -> pd.DataFrame | None:
+(Python3.9 error)
+
+#(GPT hat vorgeschlagen einzelne parts python 3.9 comform zu machen aber es kamen immer wieder errors)
+got another error now TypeError: unsupported operand type(s) for |: 'type' and 'type' File "/Users/mariosspathiadis/PythonDataScience/.venv/lib/python3.9/site-packages/streamlit/runtime/scriptrunner/exec_code.py", line 128, in exec_func_with_error_handling result = func() File "/Users/mariosspathiadis/PythonDataScience/.venv/lib/python3.9/site-packages/streamlit/runtime/scriptrunner/script_runner.py", line 669, in code_to_exec exec(code, module.__dict__) # noqa: S102 File "/Users/mariosspathiadis/PythonDataScience/streamlit_app.py", line 46, in <module> def minutes_to_h_m(minutes: int | float) -> str:
+
+Dann habe ich überlegt python auf 3.10 zu updated 
+
+or should i just update python?
+
+change it to work with python 3.9
+(Kompletten Code dazu geschrieben)
+
+noch ein error:
+there is an errir json.decoder.JSONDecodeError: Expecting property name enclosed in double quotes: line 1 column 2 (char 1) File "/Users/mariosspathiadis/PythonDataScience/.venv/lib/python3.9/site-packages/streamlit/runtime/scriptrunner/exec_code.py", line 128, in exec_func_with_error_handling result = func() File "/Users/mariosspathiadis/PythonDataScience/.venv/lib/python3.9/site-packages/streamlit/runtime/scriptrunner/script_runner.py", line 669, in code_to_exec exec(code, module.__dict__) # noqa: S102 File "/Users/mariosspathiadis/PythonDataScience/streamlit_app.py", line 248, in <module> html = make_pyvis_graph(edges, top_n) File "/Users/mariosspathiadis/PythonDataScience/streamlit_app.py", line 118, in make_pyvis_graph net.set_options(""" File "/Users/mariosspathiadis/PythonDataScience/.venv/lib/python3.9/site-packages/pyvis/network.py", line 1006, in set_options self.options = self.options.set(options) File "/Users/mariosspathiadis/PythonDataScience/.venv/lib/python3.9/site-packages/pyvis/options.py", line 224, in set options = json.loads(options) File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/json/__init__.py", line 346, in loads return _default_decoder.decode(s) File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/json/decoder.py", line 337, in decode obj, end = self.raw_decode(s, idx=_w(s, 0).end()) File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/json/decoder.py", line 353, in raw_decode obj, end = self.scan_once(s, idx)
+
+dann lief es
+
