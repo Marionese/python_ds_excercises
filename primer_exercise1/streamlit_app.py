@@ -11,6 +11,54 @@ from typing import Optional
 
 # ---------- Helpers ----------
 
+from openai import OpenAI
+import streamlit as st
+
+# Your base HU model instance
+client = OpenAI(
+    base_url="https://llm3-compute.cms.hu-berlin.de/v1/",
+    api_key="not-needed-here",
+    timeout=5
+)
+
+def ask_question_stream(question: str, dataset_text: str):
+    """Stream model response to a question about the dataset."""
+    prompt = f"""
+You are an IMDb dataset assistant.
+You may ONLY answer using the dataset text provided below.
+If the answer is not in the dataset, answer: "I don't know based on the dataset."
+
+Dataset:
+{dataset_text}
+    """
+
+    stream = client.chat.completions.create(
+        model="llm3",
+        messages=[
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": question}
+        ],
+        stream=True
+    )
+    for chunk in stream:
+        if chunk.choices[0].delta.content:
+            yield chunk.choices[0].delta.content.replace("**", "")
+
+def dataset_to_text(df: pd.DataFrame) -> str:
+    """Convert important parts of the IMDb dataset into readable text for prompting."""
+    selected = df[["title", "year", "duration", "ratingValue", "ratingCount", "gross", "castList", "directorList"]].copy()
+    # Keep only the first ~50 rows to avoid sending too much text
+    selected = selected.head(50)
+
+    # Convert lists into comma-separated text for the model
+    def list_to_str(x):
+        return ", ".join(x) if isinstance(x, list) else str(x)
+
+    selected["castList"] = selected["castList"].apply(list_to_str)
+    selected["directorList"] = selected["directorList"].apply(list_to_str)
+
+    return selected.to_string(index=False)
+
 def load_data(uploaded_file) -> Optional[pd.DataFrame]:
     if uploaded_file is None:
         return None
@@ -83,12 +131,30 @@ def build_collaboration_edges(df: pd.DataFrame):
         directors = row.get("directorList", [])
         cast = row.get("castList", [])
 
-        if not isinstance(directors, list) or not isinstance(cast, list):
-            continue
+        if not isinstance(directors, list):
+            directors = []
+        if not isinstance(cast, list):
+            cast = []
 
+        # --- Director ↔ Actor ---
         for d in directors:
             for a in cast:
                 edge_weights[(d, a)] += 1
+
+        # --- Actor ↔ Actor ---
+        for i in range(len(cast)):
+            for j in range(i + 1, len(cast)):
+                a1, a2 = cast[i], cast[j]
+                # sort alphabetically so (a,b) == (b,a)
+                pair = tuple(sorted([a1, a2]))
+                edge_weights[pair] += 1
+
+        # --- Director ↔ Director ---
+        for i in range(len(directors)):
+            for j in range(i + 1, len(directors)):
+                d1, d2 = directors[i], directors[j]
+                pair = tuple(sorted([d1, d2]))
+                edge_weights[pair] += 1
 
     return edge_weights
 
@@ -96,7 +162,7 @@ def build_collaboration_edges(df: pd.DataFrame):
 def make_pyvis_graph(edge_weights: Counter, top_n: int) -> str:
     sorted_edges = sorted(
         edge_weights.items(),
-        key=lambda kv: (-kv[1], kv[0][0], kv[0][1])
+        key=lambda kv: (-kv[1], kv[0])
     )[:top_n]
 
     net = Network(height="600px", width="100%", bgcolor="#111111", font_color="white")
@@ -104,23 +170,27 @@ def make_pyvis_graph(edge_weights: Counter, top_n: int) -> str:
 
     added_nodes = set()
 
-    for (director, actor), weight in sorted_edges:
-        if director not in added_nodes:
-            net.add_node(director, label=director, title=f"Director: {director}", group="director")
-            added_nodes.add(director)
+    for (n1, n2), weight in sorted_edges:
 
-        if actor not in added_nodes:
-            net.add_node(actor, label=actor, title=f"Actor: {actor}", group="actor")
-            added_nodes.add(actor)
+        # Knoten hinzufügen
+        if n1 not in added_nodes:
+            group = "director" if " " not in n1 else "person"
+            net.add_node(n1, label=n1, title=n1, group=group)
+            added_nodes.add(n1)
 
-        net.add_edge(director, actor, value=weight, title=f"{weight} movie(s) together")
+        if n2 not in added_nodes:
+            group = "director" if " " not in n2 else "person"
+            net.add_node(n2, label=n2, title=n2, group=group)
+            added_nodes.add(n2)
 
-    # 👉 valid JSON string (no 'const options =', keys quoted)
+        # Kante hinzufügen
+        net.add_edge(n1, n2, value=weight, title=f"{weight} collaboration(s)")
+
     net.set_options("""
     {
       "nodes": {
         "shape": "dot",
-        "size": 8,
+        "size": 9,
         "borderWidth": 1,
         "font": { "size": 14 }
       },
@@ -132,19 +202,16 @@ def make_pyvis_graph(edge_weights: Counter, top_n: int) -> str:
       "physics": {
         "stabilization": true,
         "barnesHut": {
-          "gravitationalConstant": -8000,
+          "gravitationalConstant": -9000,
           "springLength": 150,
           "springConstant": 0.02
         }
-      },
-      "interaction": {
-        "hover": true,
-        "tooltipDelay": 100
       }
     }
     """)
 
     return net.generate_html("graph.html")
+
 
 
 
@@ -229,6 +296,35 @@ with tab5:
     st.dataframe(actor_gross_df.head(10).set_index("actor")[["total_gross", "formatted"]])
 
 # ---------- Extra Features ----------
+st.markdown("---")
+st.subheader("🤖 Ask the IMDb Dataset")
+
+# Initialize chat history in Streamlit
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+
+# UI Input
+user_input = st.text_input("Ask a question about the dataset:")
+
+if st.button("Ask"):
+    if user_input.strip():
+        dataset_text = dataset_to_text(df)
+        st.session_state.chat_history.append(("🧑", user_input))
+
+        # Response container
+        response_box = st.empty()
+        collected = ""
+
+        # Stream the answer
+        for token in ask_question_stream(user_input, dataset_text):
+            collected += token
+            response_box.markdown(f"**🤖:** {collected}")
+
+        st.session_state.chat_history.append(("🤖", collected))
+
+# Display chat history
+for speaker, text in st.session_state.chat_history:
+    st.markdown(f"**{speaker}:** {text}")
 
 st.markdown("---")
 col_timeline, col_graph = st.columns(2)
@@ -245,7 +341,8 @@ with col_graph:
     if edges:
         total_edges = len(edges)
         min_edges = min(10, total_edges)
-        top_n = st.slider("Number of strongest collaborations", min_edges, total_edges, min_edges)
+        max_edges = min(total_edges, 1000)
+        top_n = st.slider("Number of strongest collaborations", min_edges, max_edges, min_edges)
 
         html = make_pyvis_graph(edges, top_n)
         components.html(html, height=600, scrolling=True)
