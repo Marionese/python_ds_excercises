@@ -1,0 +1,12 @@
+,dtype,missing_count,missing_pct,n_unique
+Rank,int64,0,0.0,13494
+Name,string,0,0.0,9603
+Platform,category,0,0.0,31
+Year,int64,0,0.0,38
+Genre,category,0,0.0,12
+Publisher,string,0,0.0,561
+NA_Sales,Float64,0,0.0,97
+EU_Sales,Float64,0,0.0,45
+JP_Sales,Float64,0,0.0,17
+Other_Sales,Float64,0,0.0,17
+Global_Sales,Float64,0,0.0,241
